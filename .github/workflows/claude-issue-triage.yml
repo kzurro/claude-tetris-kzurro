@@ -1,0 +1,60 @@
+name: Claude Issue Triage
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  triage:
+    # Evita re-triaje cuando la edición la hace un bot (incl. el propio Claude)
+    if: github.event.sender.type != 'Bot'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Ensure triage labels exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          ensure() { gh label create "$1" --color "$2" --description "$3" --repo "$REPO" --force; }
+          ensure "bug"           "d73a4a" "Algo no funciona"
+          ensure "enhancement"   "a2eeef" "Mejora o nueva funcionalidad"
+          ensure "ui"            "fbca04" "Interfaz / render / canvas / estilos"
+          ensure "gameplay"      "0e8a16" "Lógica de juego (piezas, colisión, puntuación)"
+          ensure "performance"   "5319e7" "Rendimiento / loop / fps"
+          ensure "question"      "d876e3" "Duda o soporte"
+          ensure "needs-info"    "e4e669" "Falta información para diagnosticar"
+          ensure "priority:high" "b60205" "Urgente / bloqueante"
+          ensure "priority:low"  "c5def5" "Baja prioridad"
+
+      - name: Run Claude triage
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh label list:*)"'
+          prompt: |
+            Estás triando el issue #${{ github.event.issue.number }} del repo ${{ github.repository }}.
+            Es un juego de Tetris en JavaScript vanilla (game.js, index.html, style.css).
+
+            Pasos:
+            1. Lee el issue: `gh issue view ${{ github.event.issue.number }} --repo ${{ github.repository }}`.
+            2. Asigna labels APROPIADOS SOLO de esta lista existente (nunca inventes labels nuevos):
+               bug, enhancement, ui, gameplay, performance, question, needs-info, priority:high, priority:low.
+               Aplícalos con: `gh issue edit ${{ github.event.issue.number }} --repo ${{ github.repository }} --add-label "label1,label2"`.
+            3. Publica UN comentario de "Diagnóstico general" en español con:
+               - Resumen del problema/petición.
+               - Causa raíz probable y archivos/funciones sospechosos (ej. loop(), collide(), clearLines(), lockPiece(), rotateCW() en game.js).
+               - Enfoque sugerido para la solución (sin escribir el código final).
+               - Si falta info, aplica needs-info y pide los datos concretos.
+               Usa: `gh issue comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body "..."`.
+            4. Si ya publicaste antes un comentario de "Diagnóstico general" en este issue, actualiza el criterio en uno nuevo y breve indicando qué cambió; no dupliques diagnósticos idénticos.
+
+            No modifiques código ni el cuerpo del issue. Solo labels + comentario.
