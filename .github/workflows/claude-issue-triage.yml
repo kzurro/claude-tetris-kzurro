@@ -49,12 +49,27 @@ jobs:
             2. Asigna labels APROPIADOS SOLO de esta lista existente (nunca inventes labels nuevos):
                bug, enhancement, ui, gameplay, performance, question, needs-info, priority:high, priority:low.
                Aplícalos con: `gh issue edit ${{ github.event.issue.number }} --repo ${{ github.repository }} --add-label "label1,label2"`.
-            3. Publica UN comentario de "Diagnóstico general" en español con:
-               - Resumen del problema/petición.
-               - Causa raíz probable y archivos/funciones sospechosos (ej. loop(), collide(), clearLines(), lockPiece(), rotateCW() en game.js).
-               - Enfoque sugerido para la solución (sin escribir el código final).
-               - Si falta info, aplica needs-info y pide los datos concretos.
-               Usa: `gh issue comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body "..."`.
+            3. Publica UN comentario de "Diagnóstico general" en español, en Markdown bien formateado, con esta estructura exacta:
+               ```
+               ## 🔍 Diagnóstico general
+
+               ### Resumen
+               <resumen breve del problema/petición>
+
+               ### Causa raíz probable
+               <explicación, citando archivos/funciones sospechosos entre backticks, ej. `loop()`, `collide()`, `clearLines()`, `lockPiece()`, `rotateCW()` en `game.js`>
+
+               ### Enfoque sugerido
+               - <punto 1>
+               - <punto 2>
+               (sin escribir el código final)
+
+               ### Labels aplicados
+               `label1`, `label2`
+               ```
+               Si falta información, añade una sección `### Falta información` con una lista de las preguntas concretas, y aplica needs-info.
+               Usa listas, negritas y bloques de código (```) donde aporten claridad; evita párrafos largos sin estructura.
+               Publica con: `gh issue comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body "..."` (recuerda escapar correctamente saltos de línea y comillas en el `--body`).
             4. Si ya publicaste antes un comentario de "Diagnóstico general" en este issue, actualiza el criterio en uno nuevo y breve indicando qué cambió; no dupliques diagnósticos idénticos.
 
             No modifiques código ni el cuerpo del issue. Solo labels + comentario.
