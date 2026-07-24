@@ -68,7 +68,52 @@
       <div class="overlay-box">
         <p id="overlay-title">GAME OVER</p>
         <p id="overlay-score"></p>
+
+        <div class="stats-row">
+          <span>Líneas máximas: <b id="overlay-max-lines">0</b></span>
+          <span>Mejor combo: <b id="overlay-best-combo">0</b></span>
+        </div>
+
+        <div id="name-entry" class="name-entry hidden">
+          <label for="player-name-input">¡Nuevo récord! Introduce tu nombre:</label>
+          <input type="text" id="player-name-input" maxlength="10" autocomplete="off" />
+          <button id="save-score-btn">Guardar</button>
+        </div>
+
+        <div class="hs-table-wrap">
+          <table class="hs-table">
+            <thead>
+              <tr><th>#</th><th>Nombre</th><th>Puntos</th></tr>
+            </thead>
+            <tbody id="overlay-scores-body"></tbody>
+          </table>
+        </div>
+
         <button id="restart-btn">Reiniciar</button>
+        <button id="overlay-reset-scores-btn" class="reset-scores-btn">Reiniciar récords</button>
+      </div>
+    </div>
+
+    <div id="start-screen" class="overlay">
+      <div class="overlay-box">
+        <p class="screen-title">RÉCORDS</p>
+
+        <div class="stats-row">
+          <span>Líneas máximas: <b id="start-max-lines">0</b></span>
+          <span>Mejor combo: <b id="start-best-combo">0</b></span>
+        </div>
+
+        <div class="hs-table-wrap">
+          <table class="hs-table">
+            <thead>
+              <tr><th>#</th><th>Nombre</th><th>Puntos</th></tr>
+            </thead>
+            <tbody id="start-scores-body"></tbody>
+          </table>
+        </div>
+
+        <button id="start-play-btn">Jugar</button>
+        <button id="reset-scores-btn" class="reset-scores-btn">Reiniciar récords</button>
       </div>
     </div>
   </div>

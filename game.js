@@ -71,7 +71,26 @@ const visionCanvas = document.getElementById('vision-canvas');
 const visionCtx = visionCanvas.getContext('2d');
 const visionTimerEl = document.getElementById('vision-timer');
 
+// --- Elementos de la tabla de récords local (localStorage) ---
+const startScreen = document.getElementById('start-screen');
+const startPlayBtn = document.getElementById('start-play-btn');
+const startScoresBody = document.getElementById('start-scores-body');
+const startMaxLinesEl = document.getElementById('start-max-lines');
+const startBestComboEl = document.getElementById('start-best-combo');
+const resetScoresBtn = document.getElementById('reset-scores-btn');
+
+const overlayMaxLinesEl = document.getElementById('overlay-max-lines');
+const overlayBestComboEl = document.getElementById('overlay-best-combo');
+const overlayScoresBody = document.getElementById('overlay-scores-body');
+const nameEntry = document.getElementById('name-entry');
+const playerNameInput = document.getElementById('player-name-input');
+const saveScoreBtn = document.getElementById('save-score-btn');
+const overlayResetScoresBtn = document.getElementById('overlay-reset-scores-btn');
+
 const THEME_KEY = 'tetris-theme';
+const SCORES_KEY = 'tetris-highscores';
+const STATS_KEY = 'tetris-stats';
+const MAX_SCORES = 5;
 
 let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, linesSinceBomb;
 let gridColor = '#22222e';
@@ -91,6 +110,135 @@ function applyTheme(isLight) {
 
 applyTheme(localStorage.getItem(THEME_KEY) === 'light');
 themeToggle.addEventListener('change', () => applyTheme(themeToggle.checked));
+
+// --- Tabla de récords local (localStorage) ---
+// Guarda hasta MAX_SCORES entradas {name, score}, ordenadas de mayor a menor.
+
+// Lee la lista de puntuaciones guardadas; si localStorage no está disponible
+// (p.ej. navegación privada) o el contenido es inválido, se trata como vacía.
+function loadScores() {
+  try {
+    const raw = localStorage.getItem(SCORES_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveScores(list) {
+  try {
+    localStorage.setItem(SCORES_KEY, JSON.stringify(list));
+  } catch (e) {
+    // localStorage no disponible: se ignora, la partida sigue funcionando.
+  }
+}
+
+// Borra los récords guardados y refresca las tablas visibles (quedan vacías).
+function resetScores() {
+  try {
+    localStorage.removeItem(SCORES_KEY);
+  } catch (e) {
+    // localStorage no disponible: nada que borrar.
+  }
+  renderHighScores();
+}
+
+// Récords históricos (independientes de la partida actual): líneas máximas
+// alcanzadas en una sola partida y mejor combo (ver comentario en clearLines).
+function loadStats() {
+  try {
+    const raw = localStorage.getItem(STATS_KEY);
+    const stats = raw ? JSON.parse(raw) : null;
+    return {
+      maxLines: stats && Number.isFinite(stats.maxLines) ? stats.maxLines : 0,
+      bestCombo: stats && Number.isFinite(stats.bestCombo) ? stats.bestCombo : 0,
+    };
+  } catch (e) {
+    return { maxLines: 0, bestCombo: 0 };
+  }
+}
+
+function saveStats(stats) {
+  try {
+    localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+  } catch (e) {
+    // localStorage no disponible: se ignora.
+  }
+}
+
+let allTimeStats = loadStats();
+
+// ¿La puntuación entra en el top MAX_SCORES? `scores` debe venir ordenada
+// de mayor a menor (como devuelve loadScores tras guardar).
+function scoreQualifies(value, scores) {
+  if (scores.length < MAX_SCORES) return true;
+  return value > scores[scores.length - 1].score;
+}
+
+// Rellena una tabla (tbody) con la lista de puntuaciones. `highlightIndex`
+// marca visualmente la fila recién insertada (récord nuevo).
+function fillScoresTable(tbody, scores, highlightIndex) {
+  tbody.innerHTML = '';
+  if (!scores.length) {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 3;
+    td.className = 'hs-empty';
+    td.textContent = 'Sin récords todavía';
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+    return;
+  }
+  scores.forEach((entry, i) => {
+    const tr = document.createElement('tr');
+    if (i === highlightIndex) tr.classList.add('hs-new');
+    const tdPos = document.createElement('td');
+    tdPos.textContent = String(i + 1);
+    const tdName = document.createElement('td');
+    tdName.textContent = entry.name;
+    const tdScore = document.createElement('td');
+    tdScore.textContent = entry.score.toLocaleString();
+    tr.append(tdPos, tdName, tdScore);
+    tbody.appendChild(tr);
+  });
+}
+
+function updateStatsDisplay() {
+  startMaxLinesEl.textContent = allTimeStats.maxLines;
+  startBestComboEl.textContent = allTimeStats.bestCombo;
+  overlayMaxLinesEl.textContent = allTimeStats.maxLines;
+  overlayBestComboEl.textContent = allTimeStats.bestCombo;
+}
+
+// Redibuja las tablas de récords (pantalla de inicio y overlay de game over)
+// y las estadísticas históricas. `overlayHighlightIndex` resalta la fila
+// recién insertada en la tabla del overlay (si aplica).
+function renderHighScores(overlayHighlightIndex) {
+  const scores = loadScores();
+  fillScoresTable(startScoresBody, scores, -1);
+  fillScoresTable(overlayScoresBody, scores, overlayHighlightIndex ?? -1);
+  updateStatsDisplay();
+}
+
+// Guarda el nombre introducido junto a la puntuación final de la partida,
+// mantiene sólo el top MAX_SCORES y resalta la fila insertada.
+function submitHighScore() {
+  const name = (playerNameInput.value || '').trim().slice(0, 10) || 'JUGADOR';
+  const scores = loadScores();
+  scores.push({ name, score });
+  scores.sort((a, b) => b.score - a.score);
+  const trimmed = scores.slice(0, MAX_SCORES);
+  saveScores(trimmed);
+  nameEntry.classList.add('hidden');
+  playerNameInput.value = '';
+  const insertedIndex = trimmed.findIndex(e => e.name === name && e.score === score);
+  renderHighScores(insertedIndex);
+}
+
+function handleResetScores() {
+  resetScores();
+}
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
@@ -240,6 +388,14 @@ function clearLines() {
     level = Math.floor(lines / 10) + 1;
     dropInterval = Math.max(100, 1000 - (level - 1) * 90);
     gainEnergy(cleared);
+    // "Mejor combo" = mayor nº de líneas eliminadas SIMULTÁNEAMENTE en un
+    // solo bloqueo de pieza (este `cleared`, máx. 4 = Tetris), NO la suma
+    // total de líneas de la partida. Es un récord histórico entre partidas.
+    if (cleared > allTimeStats.bestCombo) {
+      allTimeStats.bestCombo = cleared;
+      saveStats(allTimeStats);
+      updateStatsDisplay();
+    }
     updateHUD();
   }
 }
@@ -409,6 +565,25 @@ function endGame() {
   cancelAnimationFrame(animId);
   overlayTitle.textContent = 'GAME OVER';
   overlayScore.textContent = `Puntuación: ${score.toLocaleString()}`;
+
+  // "Líneas máximas" = mayor total de líneas de una partida completa
+  // (récord histórico entre partidas, distinto del combo de un solo clear).
+  if (lines > allTimeStats.maxLines) {
+    allTimeStats.maxLines = lines;
+    saveStats(allTimeStats);
+  }
+
+  const scores = loadScores();
+  if (scoreQualifies(score, scores)) {
+    nameEntry.classList.remove('hidden');
+    playerNameInput.value = '';
+    renderHighScores();
+    playerNameInput.focus();
+  } else {
+    nameEntry.classList.add('hidden');
+    renderHighScores();
+  }
+
   overlay.classList.remove('hidden');
 }
 
@@ -473,7 +648,7 @@ function init() {
 
 document.addEventListener('keydown', e => {
   if (e.code === 'KeyP') { togglePause(); return; }
-  if (paused || gameOver) return;
+  if (!current || paused || gameOver) return;
   switch (e.code) {
     case 'ArrowLeft':
       if (!collide(current.shape, current.x - 1, current.y)) current.x--;
@@ -498,4 +673,26 @@ document.addEventListener('keydown', e => {
 
 restartBtn.addEventListener('click', init);
 
-init();
+// --- Arranque: pantalla de inicio con la tabla de récords ---
+// El bloqueo de teclado hasta que empiece la partida lo garantiza el guard
+// `!current` (y `gameOver`, aquí forzado a true) del listener de keydown.
+gameOver = true;
+
+function showStartScreen() {
+  renderHighScores();
+  startScreen.classList.remove('hidden');
+}
+
+startPlayBtn.addEventListener('click', () => {
+  startScreen.classList.add('hidden');
+  init();
+});
+
+resetScoresBtn.addEventListener('click', handleResetScores);
+overlayResetScoresBtn.addEventListener('click', handleResetScores);
+saveScoreBtn.addEventListener('click', submitHighScore);
+playerNameInput.addEventListener('keydown', e => {
+  if (e.code === 'Enter') submitHighScore();
+});
+
+showStartScreen();
