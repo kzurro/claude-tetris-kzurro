@@ -35,6 +35,22 @@ const PIECES = [
 
 const LINE_SCORES = [0, 100, 300, 500, 800];
 
+// --- Configuración del sistema de habilidades cargables ---
+// La barra de energía va de 0 a MAX_ENERGY. Se llena al limpiar líneas: cuantas
+// más líneas se limpian de golpe, más energía se gana (premia los Tetris).
+// Índice = nº de líneas limpiadas simultáneamente (0 a 4), igual que LINE_SCORES.
+const MAX_ENERGY = 100;
+const ENERGY_GAIN = [0, 20, 45, 70, 100];
+
+// Nº de piezas "extra" que se mantienen preparadas por delante de `next`,
+// para poder mostrar 5 piezas en total (next + UPCOMING_COUNT) cuando se
+// activa la habilidad de Visión.
+const UPCOMING_COUNT = 4;
+
+// Duración (en milisegundos) que permanece visible el panel de Visión
+// una vez que la habilidad se activa automáticamente al llenar la barra.
+const VISION_DURATION = 10000;
+
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 const nextCanvas = document.getElementById('next-canvas');
@@ -48,10 +64,23 @@ const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
 const themeToggle = document.getElementById('theme-toggle');
 
+// --- Elementos del sistema de habilidades cargables (barra de energía + habilidad "Visión") ---
+const energyBarFill = document.getElementById('energy-bar-fill');
+const visionPanel = document.getElementById('vision-panel');
+const visionCanvas = document.getElementById('vision-canvas');
+const visionCtx = visionCanvas.getContext('2d');
+const visionTimerEl = document.getElementById('vision-timer');
+
 const THEME_KEY = 'tetris-theme';
 
 let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, linesSinceBomb;
 let gridColor = '#22222e';
+
+// --- Estado del sistema de habilidades cargables ---
+let upcoming;      // array con las UPCOMING_COUNT piezas que vienen después de `next`
+let energy;         // energía actual de la barra (0 a MAX_ENERGY)
+let skillActive;    // true mientras la habilidad de Visión está activa
+let skillTimer;     // milisegundos restantes de la habilidad activa
 
 function applyTheme(isLight) {
   document.body.classList.toggle('light-theme', isLight);
@@ -77,6 +106,80 @@ function randomPiece() {
   }
   const shape = type === BOMB_TYPE ? [[BOMB_TYPE]] : PIECES[type].map(row => [...row]);
   return { type, shape, x: Math.floor(COLS / 2) - Math.floor(shape[0].length / 2), y: 0 };
+}
+
+// Rellena la cola `upcoming` hasta tener UPCOMING_COUNT piezas preparadas.
+// Se usa al iniciar la partida y cada vez que se saca una pieza de la cola
+// en spawn(), de forma que siempre haya piezas listas para la habilidad de Visión.
+function fillUpcoming() {
+  while (upcoming.length < UPCOMING_COUNT) {
+    upcoming.push(randomPiece());
+  }
+}
+
+// Suma energía a la barra según el nº de líneas limpiadas de una vez
+// (usa ENERGY_GAIN, que premia más los clears múltiples). Si la barra
+// llega al máximo, activa automáticamente la habilidad de Visión.
+function gainEnergy(cleared) {
+  if (!cleared || skillActive) return; // no acumular energía mientras la habilidad ya está activa
+  energy = Math.min(MAX_ENERGY, energy + (ENERGY_GAIN[cleared] || 0));
+  updateEnergyBar();
+  if (energy >= MAX_ENERGY) {
+    activateVisionSkill();
+  }
+}
+
+// Refresca el ancho visual de la barra de energía según el valor actual.
+function updateEnergyBar() {
+  const pct = (energy / MAX_ENERGY) * 100;
+  energyBarFill.style.width = `${pct}%`;
+  energyBarFill.classList.toggle('energy-full', energy >= MAX_ENERGY);
+}
+
+// Activa la habilidad "Visión": muestra el panel con las 5 próximas piezas
+// (la pieza `next` + las UPCOMING_COUNT de la cola `upcoming`) durante
+// VISION_DURATION milisegundos y vacía la barra de energía.
+function activateVisionSkill() {
+  skillActive = true;
+  skillTimer = VISION_DURATION;
+  energy = 0;
+  updateEnergyBar();
+  visionPanel.classList.remove('hidden');
+  drawVisionQueue();
+}
+
+// Desactiva la habilidad "Visión" cuando se agota el tiempo: oculta el panel.
+function deactivateVisionSkill() {
+  skillActive = false;
+  skillTimer = 0;
+  visionPanel.classList.add('hidden');
+}
+
+// Avanza el contador de tiempo de la habilidad activa; se llama cada frame
+// desde loop(). Cuando llega a 0 desactiva la habilidad.
+function updateSkillTimer(dt) {
+  if (!skillActive) return;
+  skillTimer -= dt;
+  visionTimerEl.textContent = `${Math.ceil(Math.max(0, skillTimer) / 1000)}s`;
+  if (skillTimer <= 0) {
+    deactivateVisionSkill();
+  }
+}
+
+// Dibuja en vision-canvas las 5 próximas piezas (next + upcoming), apiladas
+// verticalmente, para que el jugador pueda planificar con antelación.
+function drawVisionQueue() {
+  const VB = 20; // tamaño de bloque reducido: 4 celdas x VB x 5 piezas = 400px = alto del canvas
+  visionCtx.clearRect(0, 0, visionCanvas.width, visionCanvas.height);
+  const queue = [next, ...upcoming];
+  queue.forEach((piece, i) => {
+    const shape = piece.shape;
+    const offX = Math.floor((4 - shape[0].length) / 2);
+    const offY = i * 4 + Math.floor((4 - shape.length) / 2);
+    for (let r = 0; r < shape.length; r++)
+      for (let c = 0; c < shape[r].length; c++)
+        drawBlock(visionCtx, offX + c, offY + r, shape[r][c], VB);
+  });
 }
 
 function collide(shape, ox, oy) {
@@ -136,6 +239,7 @@ function clearLines() {
     score += (LINE_SCORES[cleared] || 0) * level;
     level = Math.floor(lines / 10) + 1;
     dropInterval = Math.max(100, 1000 - (level - 1) * 90);
+    gainEnergy(cleared);
     updateHUD();
   }
 }
@@ -189,11 +293,15 @@ function lockPiece() {
 
 function spawn() {
   current = next;
-  next = randomPiece();
+  // La nueva "next" sale de la cola `upcoming`; luego se rellena la cola
+  // para mantener siempre UPCOMING_COUNT piezas preparadas por delante.
+  next = upcoming.shift();
+  fillUpcoming();
   if (collide(current.shape, current.x, current.y)) {
     endGame();
   }
   drawNext();
+  if (skillActive) drawVisionQueue(); // si la Visión está activa, refrescar el panel con la cola actualizada
 }
 
 function updateHUD() {
@@ -321,6 +429,7 @@ function togglePause() {
 function loop(ts) {
   const dt = ts - lastTime;
   lastTime = ts;
+  updateSkillTimer(dt);
   dropAccum += dt;
   if (dropAccum >= dropInterval) {
     dropAccum = 0;
@@ -346,6 +455,14 @@ function init() {
   dropInterval = 1000;
   dropAccum = 0;
   lastTime = performance.now();
+
+  // Reinicio del sistema de habilidades cargables
+  upcoming = [];
+  fillUpcoming();
+  energy = 0;
+  updateEnergyBar();
+  deactivateVisionSkill();
+
   next = randomPiece();
   spawn();
   updateHUD();
