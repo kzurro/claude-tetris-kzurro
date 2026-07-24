@@ -186,6 +186,23 @@ body {
   border-radius: 4px;
 }
 
+/* ---- Selector de skin visual ---- */
+.skin-select {
+  background: var(--kbd-bg);
+  color: var(--text-color);
+  border: 1px solid var(--kbd-border);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.skin-select:focus {
+  outline: 1px solid var(--value-color);
+  outline-offset: 1px;
+}
+
 /* ---- Barra de energía (habilidades cargables) ---- */
 .energy-bar-track {
   width: 100%;
