@@ -64,6 +64,12 @@ const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
 const themeToggle = document.getElementById('theme-toggle');
 
+// --- Elementos del menú de pausa ---
+const pauseMenu = document.getElementById('pause-menu');
+const resumeBtn = document.getElementById('resume-btn');
+const pauseRestartBtn = document.getElementById('pause-restart-btn');
+const startLevelSelect = document.getElementById('start-level-select');
+
 // --- Elementos del sistema de habilidades cargables (barra de energía + habilidad "Visión") ---
 const energyBarFill = document.getElementById('energy-bar-fill');
 const visionPanel = document.getElementById('vision-panel');
@@ -72,6 +78,9 @@ const visionCtx = visionCanvas.getContext('2d');
 const visionTimerEl = document.getElementById('vision-timer');
 
 const THEME_KEY = 'tetris-theme';
+const START_LEVEL_KEY = 'tetris-start-level';
+const MIN_START_LEVEL = 1;
+const MAX_START_LEVEL = 15;
 
 let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, linesSinceBomb;
 let gridColor = '#22222e';
@@ -91,6 +100,21 @@ function applyTheme(isLight) {
 
 applyTheme(localStorage.getItem(THEME_KEY) === 'light');
 themeToggle.addEventListener('change', () => applyTheme(themeToggle.checked));
+
+// Lee el nivel inicial guardado en localStorage (elegido en el menú de pausa).
+// Si no hay ninguno guardado o es inválido, se usa el nivel 1 por defecto.
+function getStartLevel() {
+  const stored = parseInt(localStorage.getItem(START_LEVEL_KEY), 10);
+  if (Number.isInteger(stored) && stored >= MIN_START_LEVEL && stored <= MAX_START_LEVEL) {
+    return stored;
+  }
+  return MIN_START_LEVEL;
+}
+
+startLevelSelect.value = String(getStartLevel());
+startLevelSelect.addEventListener('change', () => {
+  localStorage.setItem(START_LEVEL_KEY, startLevelSelect.value);
+});
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
@@ -416,13 +440,13 @@ function togglePause() {
   if (gameOver) return;
   paused = !paused;
   if (!paused) {
+    pauseMenu.classList.add('hidden');
     lastTime = performance.now();
     loop(lastTime);
   } else {
     cancelAnimationFrame(animId);
-    overlayTitle.textContent = 'PAUSA';
-    overlayScore.textContent = '';
-    overlay.classList.remove('hidden');
+    startLevelSelect.value = String(getStartLevel());
+    pauseMenu.classList.remove('hidden');
   }
 }
 
@@ -448,11 +472,11 @@ function init() {
   board = createBoard();
   score = 0;
   lines = 0;
-  level = 1;
+  level = getStartLevel();
   linesSinceBomb = 0;
   paused = false;
   gameOver = false;
-  dropInterval = 1000;
+  dropInterval = Math.max(100, 1000 - (level - 1) * 90);
   dropAccum = 0;
   lastTime = performance.now();
 
@@ -467,12 +491,13 @@ function init() {
   spawn();
   updateHUD();
   overlay.classList.add('hidden');
+  pauseMenu.classList.add('hidden');
   cancelAnimationFrame(animId);
   animId = requestAnimationFrame(loop);
 }
 
 document.addEventListener('keydown', e => {
-  if (e.code === 'KeyP') { togglePause(); return; }
+  if (e.code === 'KeyP' || e.code === 'Escape') { togglePause(); return; }
   if (paused || gameOver) return;
   switch (e.code) {
     case 'ArrowLeft':
@@ -497,5 +522,7 @@ document.addEventListener('keydown', e => {
 });
 
 restartBtn.addEventListener('click', init);
+resumeBtn.addEventListener('click', togglePause);
+pauseRestartBtn.addEventListener('click', init);
 
 init();
