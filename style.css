@@ -306,3 +306,142 @@ kbd {
 #restart-btn:hover {
   background: var(--restart-hover);
 }
+
+.screen-title {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  color: var(--title-color);
+  text-shadow: 0 0 16px var(--title-shadow);
+}
+
+/* ---- Tabla de récords (tabla de puntuaciones local) ---- */
+.stats-row {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--label-color);
+}
+
+.stats-row b {
+  color: var(--value-color);
+}
+
+.hs-table-wrap {
+  width: 240px;
+  max-height: 170px;
+  overflow-y: auto;
+  border: 1px solid var(--board-border);
+  border-radius: 4px;
+  background: var(--board-bg);
+}
+
+.hs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+}
+
+.hs-table th,
+.hs-table td {
+  padding: 6px 8px;
+  text-align: left;
+  color: var(--text-color);
+}
+
+.hs-table th {
+  color: var(--label-color);
+  font-size: 10px;
+  letter-spacing: 1px;
+  border-bottom: 1px solid var(--board-border);
+  position: sticky;
+  top: 0;
+  background: var(--board-bg);
+}
+
+.hs-table td:first-child,
+.hs-table th:first-child {
+  width: 24px;
+  text-align: center;
+}
+
+.hs-table td:last-child,
+.hs-table th:last-child {
+  text-align: right;
+}
+
+.hs-empty {
+  text-align: center !important;
+  color: var(--label-color);
+  padding: 12px !important;
+}
+
+.hs-table tr.hs-new {
+  background: var(--title-shadow);
+  color: var(--value-color);
+  font-weight: 700;
+}
+
+/* ---- Formulario para guardar un nuevo récord ---- */
+.name-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.name-entry.hidden {
+  display: none;
+}
+
+.name-entry label {
+  font-size: 12px;
+  color: var(--overlay-score-color);
+  max-width: 220px;
+}
+
+#player-name-input {
+  width: 160px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--board-border);
+  background: var(--board-bg);
+  color: var(--text-color);
+  font-size: 14px;
+  text-align: center;
+}
+
+#save-score-btn {
+  background: var(--restart-bg);
+  color: var(--restart-color);
+  border: none;
+  border-radius: 6px;
+  padding: 6px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 1px;
+  transition: background 0.15s;
+}
+
+#save-score-btn:hover {
+  background: var(--restart-hover);
+}
+
+.reset-scores-btn {
+  margin-top: 4px;
+  background: transparent;
+  color: var(--controls-color);
+  border: 1px solid var(--kbd-border);
+  border-radius: 6px;
+  padding: 6px 16px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.reset-scores-btn:hover {
+  border-color: var(--overlay-title-color);
+  color: var(--overlay-title-color);
+}
