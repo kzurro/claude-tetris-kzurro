@@ -14,7 +14,12 @@ const COLORS = [
   '#eeff00', // J - amarillo fosforito
   '#ffb74d', // L - orange
   '#b0bec5', // Tuerca - gris metálico
+  '#ff5252', // Bomba - rojo
 ];
+
+const BOMB_TYPE = 9;
+const BOMB_LINE_INTERVAL = 5; // líneas para garantizar una bomba
+const BOMB_CHANCE = 0.05;     // chance extra por spawn
 
 const PIECES = [
   null,
@@ -45,7 +50,7 @@ const themeToggle = document.getElementById('theme-toggle');
 
 const THEME_KEY = 'tetris-theme';
 
-let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
+let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, linesSinceBomb;
 let gridColor = '#22222e';
 
 function applyTheme(isLight) {
@@ -63,8 +68,14 @@ function createBoard() {
 }
 
 function randomPiece() {
-  const type = Math.floor(Math.random() * 8) + 1;
-  const shape = PIECES[type].map(row => [...row]);
+  let type;
+  if (linesSinceBomb >= BOMB_LINE_INTERVAL || Math.random() < BOMB_CHANCE) {
+    type = BOMB_TYPE;
+    linesSinceBomb = 0;
+  } else {
+    type = Math.floor(Math.random() * 8) + 1;
+  }
+  const shape = type === BOMB_TYPE ? [[BOMB_TYPE]] : PIECES[type].map(row => [...row]);
   return { type, shape, x: Math.floor(COLS / 2) - Math.floor(shape[0].length / 2), y: 0 };
 }
 
@@ -121,11 +132,26 @@ function clearLines() {
   }
   if (cleared) {
     lines += cleared;
+    linesSinceBomb += cleared;
     score += (LINE_SCORES[cleared] || 0) * level;
     level = Math.floor(lines / 10) + 1;
     dropInterval = Math.max(100, 1000 - (level - 1) * 90);
     updateHUD();
   }
+}
+
+function explodeBomb() {
+  const cx = current.x;
+  const cy = current.y;
+  let destroyed = 0;
+  for (let r = cy - 1; r <= cy + 1; r++) {
+    for (let c = cx - 1; c <= cx + 1; c++) {
+      if (r < 0 || r >= ROWS || c < 0 || c >= COLS) continue;
+      if (board[r][c]) destroyed++;
+      board[r][c] = 0;
+    }
+  }
+  score += destroyed * 20 * level;
 }
 
 function ghostY() {
@@ -152,7 +178,11 @@ function softDrop() {
 }
 
 function lockPiece() {
-  merge();
+  if (current.type === BOMB_TYPE) {
+    explodeBomb();
+  } else {
+    merge();
+  }
   clearLines();
   spawn();
 }
@@ -176,12 +206,43 @@ function drawBlock(context, x, y, colorIndex, size, alpha) {
   if (!colorIndex) return;
   const color = COLORS[colorIndex];
   context.globalAlpha = alpha ?? 1;
+  if (colorIndex === BOMB_TYPE) {
+    const cx = x * size + size / 2;
+    const cy = y * size + size / 2;
+    const radius = size / 2 - 3;
+    context.fillStyle = '#1a1a1a';
+    context.beginPath();
+    context.arc(cx, cy, radius, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = color;
+    context.beginPath();
+    context.arc(cx, cy, radius - 3, 0, Math.PI * 2);
+    context.fill();
+    context.strokeStyle = '#ffd54f';
+    context.lineWidth = 2;
+    context.beginPath();
+    context.moveTo(cx + radius * 0.3, cy - radius * 0.6);
+    context.lineTo(cx + radius * 0.9, cy - radius * 1.1);
+    context.stroke();
+    context.globalAlpha = 1;
+    return;
+  }
   context.fillStyle = color;
   context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
   // highlight
   context.fillStyle = 'rgba(255,255,255,0.12)';
   context.fillRect(x * size + 1, y * size + 1, size - 2, 4);
   context.globalAlpha = 1;
+}
+
+function drawBombRadius(gy) {
+  ctx.strokeStyle = 'rgba(255,82,82,0.6)';
+  ctx.lineWidth = 2;
+  const x0 = Math.max(0, current.x - 1);
+  const y0 = Math.max(0, gy - 1);
+  const x1 = Math.min(COLS, current.x + 2);
+  const y1 = Math.min(ROWS, gy + 2);
+  ctx.strokeRect(x0 * BLOCK, y0 * BLOCK, (x1 - x0) * BLOCK, (y1 - y0) * BLOCK);
 }
 
 function drawGrid() {
@@ -212,6 +273,7 @@ function draw() {
 
   // ghost
   const gy = ghostY();
+  if (current.type === BOMB_TYPE) drawBombRadius(gy);
   for (let r = 0; r < current.shape.length; r++)
     for (let c = 0; c < current.shape[r].length; c++)
       if (current.shape[r][c])
@@ -278,6 +340,7 @@ function init() {
   score = 0;
   lines = 0;
   level = 1;
+  linesSinceBomb = 0;
   paused = false;
   gameOver = false;
   dropInterval = 1000;
